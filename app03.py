@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import uuid
 from utils import *
@@ -185,3 +186,4 @@ if os.path.exists(json_file):
 
   df = display_json_table(json_file)
   st.dataframe(df)
+
