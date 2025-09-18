@@ -224,12 +224,12 @@ if os.path.exists(json_file):
             if st.button("🗑️ Limpar Todos", 
                         help="Remove todos os currículos da lista", 
                         type="secondary"):
-            if clear_all_cv_json(json_file):
-                st.success("✅ Todos os currículos foram removidos!")
-                st.session_state.selected_cv = None  # Limpar seleção
-                st.rerun()
-            else:
-                st.error("❌ Erro ao limpar lista!")
+                if clear_all_cv_json(json_file):
+                    st.success("✅ Todos os currículos foram removidos!")
+                    st.session_state.selected_cv = None  # Limpar seleção
+                    st.rerun()
+                else:
+                    st.error("❌ Erro ao limpar lista!")
         
         # Lista de currículos com botões de ação
         for i, row in df.iterrows():
@@ -304,4 +304,5 @@ if os.path.exists(json_file):
     
     df = display_json_table(json_file)
     st.dataframe(df)
+
 
