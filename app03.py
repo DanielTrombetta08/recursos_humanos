@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import uuid
+import time
 from utils import *
 from dotenv import load_dotenv
 load_dotenv()
@@ -35,14 +36,12 @@ Atividades:
 - Criar APIs, integrações e dashboards interativos.
 - Garantir boas práticas de versionamento, testes e documentação.
 - Participar de revisões de código, deploys e melhorias contínuas na arquitetura das aplicações.
-
 Pré-requisitos:
 - Sólidos conhecimentos em Python, JavaScript e SQL.
 - Experiência prática com frameworks como React, Node.js e Django.
 - Familiaridade com versionamento de código usando Git.
 - Experiência com serviços de nuvem, como AWS e Google Cloud Platform.
 - Capacidade de trabalhar em equipe, com boa comunicação e perfil colaborativo.
-
 Diferenciais:
 - Conhecimento em Power BI ou outras ferramentas de visualização de dados.
 - Experiência anterior em ambientes ágeis (Scrum, Kanban).
@@ -84,7 +83,6 @@ prompt_score = """
 Com base na vaga específica, calcule a pontuação final (de 0.0 a 10.0).
 O retorno para esse campo deve conter apenas a pontuação final (x.x) sem mais nenhum texto ou anotação.
 Seja justo e rigoroso ao atribuir as notas. A nota 10.0 só deve ser atribuída para candidaturas que superem todas as expectativas da vaga.
-
 Critérios de avaliação:
 1. Experiência (Peso: 35% do total): Análise de posições anteriores, tempo de atuação e similaridade com as responsabilidades da vaga.
 2. Habilidades Técnicas (Peso: 25% do total): Verifique o alinhamento das habilidades técnicas com os requisitos mencionados na vaga.
@@ -100,90 +98,149 @@ Responda apenas com o JSON estruturado e utilize somente essas chaves. Cuide par
 Não adicione explicações ou anotações fora do JSON.
 Schema desejado:
 {schema}
-
 ---
 Para o cálculo do campo score:
 {prompt_score}
-
 ---
-
 Currículo a ser analisado:
 '{cv}'
-
 ---
-
 Vaga que o candidato está se candidatando:
 '{job}'
-
 """)
 
+# ✅ SOLUÇÃO 3: Estados aprimorados para reset automático
 if "uploader_key" not in st.session_state:
-  st.session_state.uploader_key = str(uuid.uuid4())
-
+    st.session_state.uploader_key = str(uuid.uuid4())
+if "processing_complete" not in st.session_state:
+    st.session_state.processing_complete = False
+if "last_processed_file" not in st.session_state:
+    st.session_state.last_processed_file = None
 if "selected_cv" not in st.session_state:
-  st.session_state.selected_cv = None
+    st.session_state.selected_cv = None
+if "structured_data" not in st.session_state:
+    st.session_state.structured_data = None
 
 # Salva descrição da vaga em um .csv
 save_job_to_csv(job, path_job_csv)
 job_details = load_job(path_job_csv)
 
+# ✅ Layout aprimorado com botão de reset
 col1, col2 = st.columns(2)
+
 with col1:
-  st.header("Triagem e Análise de Currículos")
-  st.markdown("#### Vaga: {}".format(job["title"]))
+    st.header("Triagem e Análise de Currículos")
+    st.markdown("#### Vaga: {}".format(job["title"]))
+
 with col2:
-  uploaded_file = st.file_uploader("Envie um currículo em PDF", type=["pdf"], key=st.session_state.uploader_key)
+    # Botão de reset manual
+    col_upload, col_reset = st.columns([4, 1])
+    
+    with col_reset:
+        if st.button("🔄", help="Resetar upload"):
+            st.session_state.uploader_key = str(uuid.uuid4())
+            st.session_state.processing_complete = False
+            st.session_state.last_processed_file = None
+            st.session_state.structured_data = None
+            st.rerun()
+    
+    with col_upload:
+        uploaded_file = st.file_uploader(
+            "Envie um currículo em PDF", 
+            type=["pdf"], 
+            key=st.session_state.uploader_key
+        )
 
+# ✅ Processamento com reset automático
 if uploaded_file is not None:
-  with st.spinner("Analisando o currículo..."):
-    path = uploaded_file.name
-    with open(path, "wb") as f:
-      f.write(uploaded_file.read())
+    # Verificar se é um novo arquivo ou reprocessamento
+    if st.session_state.last_processed_file != uploaded_file.name:
+        
+        with st.spinner("Analisando o currículo..."):
+            path = uploaded_file.name
+            with open(path, "wb") as f:
+                f.write(uploaded_file.read())
+            
+            try:
+                output, res = process_cv(schema, job_details, prompt_template, prompt_score, llm, path)
+                structured_data = parse_res_llm(res, fields)
+                save_json_cv(structured_data, path_json=json_file, key_name="name")
+                
+                # Marcar como processado
+                st.session_state.last_processed_file = uploaded_file.name
+                st.session_state.processing_complete = True
+                st.session_state.structured_data = structured_data
+                
+                # Limpar arquivo temporário
+                if os.path.exists(path):
+                    os.remove(path)
+                
+                st.success("✅ Currículo analisado com sucesso!")
+                
+                # Aguardar um pouco antes do reset automático
+                time.sleep(0.5)
+                
+                # Reset automático do uploader
+                st.session_state.uploader_key = str(uuid.uuid4())
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Erro ao processar: {str(e)}")
+                # Reset em caso de erro
+                st.session_state.uploader_key = str(uuid.uuid4())
+                st.session_state.processing_complete = False
 
-    output, res = process_cv(schema, job_details, prompt_template, prompt_score, llm, path)
-    structured_data = parse_res_llm(res, fields)
-    save_json_cv(structured_data, path_json=json_file, key_name="name")
+# ✅ Mostrar resultados se disponíveis
+if st.session_state.processing_complete and st.session_state.structured_data:
+    
+    # Botão para analisar outro currículo
+    if st.button("📤 Analisar Outro Currículo", type="primary"):
+        st.session_state.uploader_key = str(uuid.uuid4())
+        st.session_state.processing_complete = False
+        st.session_state.last_processed_file = None
+        st.session_state.structured_data = None
+        st.rerun()
+    
+    st.write(show_cv_result(st.session_state.structured_data))
+    
+    with st.expander("Ver dados estruturados (JSON)"):
+        st.json(st.session_state.structured_data)
 
-    st.success("Currículo analisado com sucesso!")
-    st.session_state.uploader_key = str(uuid.uuid4())
-
-  st.write(show_cv_result(structured_data))
-
-  with st.expander("Ver dados estruturados (JSON)"):
-    st.json(structured_data)
-
+# Lista de currículos analisados
 if os.path.exists(json_file):
-  st.subheader("Lista de currículos analisados", divider="gray")
-  df = display_json_table(json_file)
-  for i, row in df.iterrows():
-    cols = st.columns([1, 3, 1, 5])
-    with cols[0]:
-      if st.button("Ver detalhes", key = f"btn_{i}"):
-        st.session_state.selected_cv = row.to_dict()
-    with cols[1]:
-        st.write(f"**Nome:** {row.get('name', '-')}")
-    with cols[2]:
-        st.write(f"**Score:** {row.get('score', '-')}")
-    with cols[3]:
-        st.write(f"**Resumo:** {row.get('summary', '-')}")
+    st.subheader("Lista de currículos analisados", divider="gray")
+    df = display_json_table(json_file)
+    
+    for i, row in df.iterrows():
+        cols = st.columns([1, 3, 1, 5])
+        with cols[0]:
+            if st.button("Ver detalhes", key=f"btn_{i}"):
+                st.session_state.selected_cv = row.to_dict()
+        with cols[1]:
+            st.write(f"**Nome:** {row.get('name', '-')}")
+        with cols[2]:
+            st.write(f"**Score:** {row.get('score', '-')}")
+        with cols[3]:
+            st.write(f"**Resumo:** {row.get('summary', '-')}")
 
+# Mostrar detalhes do currículo selecionado
 if st.session_state.selected_cv:
-  st.markdown("-----")
-  st.write(show_cv_result(st.session_state.selected_cv))
+    st.markdown("-----")
+    st.write(show_cv_result(st.session_state.selected_cv))
+    with st.expander("Ver dados estruturados (JSON)"):
+        st.json(st.session_state.selected_cv)
 
-  with st.expander("Ver dados estruturados (JSON)"):
-    st.json(st.session_state.selected_cv)
-
+# Download e visualização dos dados
 if os.path.exists(json_file):
-  with open(json_file, "r", encoding="utf-8") as f:
-    json_data = f.read()
-  st.download_button(
-      label = "📥 Baixar arquivo .json",
-      data = json_data,
-      file_name = json_file,
-      mime="application/json"
-  )
-
-  df = display_json_table(json_file)
-  st.dataframe(df)
-
+    with open(json_file, "r", encoding="utf-8") as f:
+        json_data = f.read()
+    
+    st.download_button(
+        label="📥 Baixar arquivo .json",
+        data=json_data,
+        file_name=json_file,
+        mime="application/json"
+    )
+    
+    df = display_json_table(json_file)
+    st.dataframe(df)
