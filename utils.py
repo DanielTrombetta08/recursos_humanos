@@ -165,31 +165,6 @@ def process_cv(schema, job_details, prompt_template, prompt_score, llm, file_pat
 
   return output, res
 
-def remove_cv_from_json(name_to_remove, path_json):
-    """Remove um currículo específico do arquivo JSON"""
-    if os.path.exists(path_json):
-        with open(path_json, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        
-        # Filtrar removendo o currículo especificado
-        data = [cv for cv in data if cv.get("name") != name_to_remove]
-        
-        # Salvar de volta
-        with open(path_json, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        
-        return True
-    return False
-
-def clear_all_cv_json(path_json):
-    """Remove todos os currículos do arquivo JSON"""
-    import streamlit as st
-    st.write(f"Tentando limpar: {path_json}")
-    if os.path.exists(path_json):
-        with open(path_json, "w", encoding="utf-8") as f:
-            json.dump([], f, indent=2, ensure_ascii=False)
-        return True
-    return False
 
 def display_json_table(path_json):
   with open(path_json, "r", encoding="utf-8") as f:
@@ -197,4 +172,3 @@ def display_json_table(path_json):
 
   df = pd.DataFrame(data)
   return df
-
