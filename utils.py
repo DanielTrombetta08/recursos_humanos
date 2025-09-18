@@ -172,3 +172,24 @@ def display_json_table(path_json):
 
   df = pd.DataFrame(data)
   return df
+
+def clear_all_cv(path_json):
+    """
+    Remove todos os currículos armazenados no arquivo JSON
+    
+    Args:
+        path_json (str): Caminho para o arquivo JSON dos currículos
+        
+    Returns:
+        bool: True se operação foi bem-sucedida, False caso contrário
+    """
+    try:
+        if os.path.exists(path_json):
+            # Remove o arquivo completamente
+            os.remove(path_json)
+            return True
+        return False
+    except Exception as e:
+        # Log do erro para auditoria
+        print(f"Erro ao limpar currículos: {str(e)}")
+        return False
