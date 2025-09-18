@@ -210,12 +210,13 @@ if st.session_state.processing_complete and st.session_state.structured_data:
 if os.path.exists(json_file):
     st.subheader("Lista de currículos analisados", divider="gray")
     df = display_json_table(json_file)
-    
+
     for i, row in df.iterrows():
         cols = st.columns([1, 3, 1, 5])
         with cols[0]:
             if st.button("Ver detalhes", key=f"btn_{i}"):
                 st.session_state.selected_cv = row.to_dict()
+                st.rerun()  # ✅ Força atualização da tela
         with cols[1]:
             st.write(f"**Nome:** {row.get('name', '-')}")
         with cols[2]:
@@ -244,3 +245,4 @@ if os.path.exists(json_file):
     
     df = display_json_table(json_file)
     st.dataframe(df)
+
