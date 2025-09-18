@@ -224,10 +224,22 @@ if os.path.exists(json_file):
         with cols[3]:
             st.write(f"**Resumo:** {row.get('summary', '-')}")
 
-# Mostrar detalhes do currículo selecionado
+# ✅ Mostrar detalhes do currículo selecionado com botão de limpeza
 if st.session_state.selected_cv:
     st.markdown("-----")
+    
+    # Botão para limpar seleção
+    col1, col2, col3 = st.columns([1, 1, 8])
+    with col1:
+        if st.button("❌ Fechar", help="Fechar detalhes do currículo"):
+            st.session_state.selected_cv = None
+            st.rerun()
+    
+    with col2:
+        st.write(f"**Currículo:** {st.session_state.selected_cv.get('name', 'N/A')}")
+    
     st.write(show_cv_result(st.session_state.selected_cv))
+    
     with st.expander("Ver dados estruturados (JSON)"):
         st.json(st.session_state.selected_cv)
 
@@ -245,4 +257,5 @@ if os.path.exists(json_file):
     
     df = display_json_table(json_file)
     st.dataframe(df)
+
 
