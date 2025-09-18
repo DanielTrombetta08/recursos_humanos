@@ -183,12 +183,13 @@ def remove_cv_from_json(name_to_remove, path_json):
 
 def clear_all_cv_json(path_json):
     """Remove todos os currículos do arquivo JSON"""
+    import streamlit as st
+    st.write(f"Tentando limpar: {path_json}")
     if os.path.exists(path_json):
         with open(path_json, "w", encoding="utf-8") as f:
             json.dump([], f, indent=2, ensure_ascii=False)
         return True
     return False
-
 
 def display_json_table(path_json):
   with open(path_json, "r", encoding="utf-8") as f:
@@ -196,3 +197,4 @@ def display_json_table(path_json):
 
   df = pd.DataFrame(data)
   return df
+
